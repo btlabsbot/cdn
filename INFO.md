@@ -264,6 +264,19 @@ Get-Content packages\api-gateway\data\nodes.json
 Al relanzar `npm run dev`, el log de `gateway` reporta
 `loaded 1 node(s) from ...`.
 
+## 🛠️ Utilidades CLI (`lynxcdn`)
+
+El proyecto incluye un script de utilidades para gestionar la configuración global del entorno. Puedes invocarlo desde la raíz del monorepo usando `npm run lynxcdn`:
+
+- **`npm run lynxcdn reset`**
+  Borra la configuración guardada actualmente en el archivo `lynxnodes.config.json`.
+- **`npm run lynxcdn reset --yes`**
+  Ejecuta el borrado de la configuración sin pedir confirmación por consola (ideal para usarlo de forma automatizada en scripts o pipelines de CI).
+- **`npm run lynxcdn config`**
+  Muestra en pantalla la configuración que está guardada en este momento.
+- **`npm run lynxcdn help`**
+  Muestra el panel de ayuda con este menú de comandos disponibles.
+  
 ## ⚠️ Estado actual (beta)
 - El cache del `/proxy` sigue siendo solo en memoria (LRU); los archivos
   subidos por `/upload` sí persisten en disco (`storage/assetStore.ts`)

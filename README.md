@@ -16,7 +16,7 @@ Bienvenido al repositorio oficial de **LynxNodes CDN**. Este proyecto nace con l
 
 ## 📦 Instalación y Uso Local
 Si quieres correr este CDN en tu propia máquina o servidor, sigue estos pasos:
-1. Clona el repositorio:
+1. Clona el repositorio (pon el punto al final si lo extraes desde una carpeta y no quieres que te cree una subcarpeta nueva):
    ```bash
    git clone https://github.com/lynxnodesgit/lynxnodes-cdn.git .
    ```

@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+
+# Builds
+dist/
+.next/
+*.tsbuildinfo
+
+# Datos generados en runtime (no deben publicarse ni versionarse)
+packages/cdn-engine/uploads/
+packages/api-gateway/data/
+
+# Variables de entorno / secretos
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/

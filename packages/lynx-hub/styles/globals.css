@@ -1,0 +1,396 @@
+:root {
+
+  --bg: #08090d;
+  --bg-soft: #0e1018;
+  --surface: #13161f;
+  --surface-hover: #1a1e2b;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 193, 0, 0.35);
+
+  --text: #f1f2f4;
+  --text-muted: #9ca3af;
+  --text-faint: #6b7280;
+
+  --signal-online: #22c55e;
+  --signal-online-ink: #0a0800;
+  --signal-degraded: #ff8c42;
+  --signal-offline: #ef4444;
+
+  --accent: #ffc100;
+  --accent2: #ff8c00;
+  --accent-soft: rgba(255, 193, 0, 0.12);
+  --danger-soft: rgba(239, 68, 68, 0.12);
+
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--signal-online-ink);
+}
+
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--text-faint);
+  color: var(--text);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn-primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  color: var(--signal-online-ink);
+  font-weight: 700;
+  box-shadow: 0 2px 16px rgba(255, 193, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.btn-primary:hover:not(:disabled) {
+  color: var(--signal-online-ink);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(255, 193, 0, 0.38);
+}
+.btn-danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ffb3b3;
+}
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--signal-offline);
+  background: var(--danger-soft);
+  color: #ffb3b3;
+}
+
+/* Signature element #1: a pulsing radar ring behind the status dot of
+   any node that's online — the visual heartbeat of the network. */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Signature element #2: a near-invisible radar sweep drifting across
+   hero/header sections — same instrument, wider frame. Kept extremely
+   subtle on purpose; it's atmosphere, not decoration. */
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.radar-sweep-bg {
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(255, 183, 3, 0.05) 8deg,
+    transparent 40deg,
+    transparent 360deg
+  );
+  animation: radar-sweep 14s linear infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-ring,
+  .radar-sweep-bg {
+    animation: none !important;
+  }
+}
+
+.checking-state {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 48px 24px;
+}
+
+.inner-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px 0;
+}
+.inner-page .back-link {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 24px;
+  transition: color 0.15s ease;
+}
+.inner-page .back-link:hover {
+  color: var(--accent);
+}
+.inner-page .page-header {
+  margin-bottom: 32px;
+}
+.inner-page .page-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.inner-page h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.inner-page .page-subtitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 8px 0 0;
+}
+.inner-page .page-subtitle code {
+  background: var(--bg-soft);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.field input {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.field input:focus {
+  border-color: var(--accent);
+}
+
+.banner {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.banner-error {
+  background: var(--danger-soft);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ffb3b3;
+}
+.banner-success {
+  background: var(--accent-soft);
+  border: 1px solid rgba(255, 183, 3, 0.3);
+  color: var(--accent);
+}
+
+/* Auth pages (login/register): centered card over a radar-sweep backdrop. */
+.auth-page {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.auth-page .auth-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.auth-page .footer-wrap {
+  position: relative;
+  z-index: 1;
+}
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.auth-brand .brand-mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.auth-card h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.auth-subtitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 8px 0 24px;
+}
+.auth-submit {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--signal-online-ink);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  margin-top: 4px;
+  box-shadow: 0 2px 16px rgba(255, 193, 0, 0.25);
+  text-align: center;
+  text-decoration: none;
+  display: block;
+}
+.auth-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(255, 193, 0, 0.38);
+}
+.auth-submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.auth-link {
+  display: block;
+  text-align: center;
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.auth-link:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.auth-link--text {
+  border: none;
+  padding: 0;
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+}
+.auth-link--text:hover {
+  background: transparent;
+  color: var(--accent);
+}

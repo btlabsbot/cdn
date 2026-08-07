@@ -286,7 +286,7 @@ El proyecto incluye un script de utilidades para gestionar la configuración glo
 - Nodos caídos no se marcan `offline` automáticamente (se quedan congelados
   en su último estado conocido si dejan de mandar heartbeat)
 
-### 🗺️ Roadmap
+## 🗺️ Roadmap
 Catch en `api-gateway` para marcar `offline` a nodos sin heartbeat
 reciente (umbral configurable, ej. 30s) y reflejarlo en el dashboard, en
 lugar de mantener el último estado indefinidamente.

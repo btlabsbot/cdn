@@ -17,6 +17,6 @@ export function loadConfig(): GatewayConfig {
     adminUsername: process.env.ADMIN_USERNAME ?? "admin",
     adminPassword: process.env.ADMIN_PASSWORD ?? "admin",
     authSecret: authSecret ?? "dev-only-insecure-secret-change-me",
-    allowRegistration: process.env.ALLOW_REGISTRATION === "true",
+    allowRegistration: process.env.ALLOW_REGISTRATION !== "false",
   };
 }

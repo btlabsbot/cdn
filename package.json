@@ -1,21 +1,13 @@
 {
-  "name": "lynxnodes-cdn",
-  "version": "0.1.0",
+  "name": "@lynxnodes/shared",
+  "version": "1.0b",
   "private": true,
-  "workspaces": [
-    "packages/shared",
-    "packages/cdn-engine",
-    "packages/api-gateway",
-    "packages/lynx-hub"
-  ],
-  "scripts": {
-    "dev": "concurrently -n gateway,cdn-engine,hub -c blue,green,magenta \"npm:dev:gateway\" \"npm:dev:cdn-engine\" \"npm:dev:hub\"",
-    "dev:gateway": "cross-env PORT=3000 npm run dev -w @lynxnodes/api-gateway",
-    "dev:cdn-engine": "cross-env NODE_ID=node-local-1 NODE_REGION=local PORT=8080 GATEWAY_URL=http://localhost:3000 npm run dev -w @lynxnodes/cdn-engine",
-    "dev:hub": "npm run dev -w @lynxnodes/lynx-hub"
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3"
+    "typescript": "^5.5.4"
   }
 }

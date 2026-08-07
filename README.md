@@ -47,8 +47,8 @@ Si quieres correr este CDN en tu propia máquina o servidor, sigue estos pasos:
    ```bash
    npm install
    ```
-3.- Ejecuta
+3. Ejecuta
    ```bash
    npm run dev
    ```
-   y listo! 🎉
+Y listo! Ya tienes tu CDN corriendo 🎉

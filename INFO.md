@@ -264,7 +264,7 @@ Get-Content packages\api-gateway\data\nodes.json
 Al relanzar `npm run dev`, el log de `gateway` reporta
 `loaded 1 node(s) from ...`.
 
-## ⚠️ Estado actual (beta) — qué falta a propósito
+## ⚠️ Estado actual (beta)
 - El cache del `/proxy` sigue siendo solo en memoria (LRU); los archivos
   subidos por `/upload` sí persisten en disco (`storage/assetStore.ts`)
 - `ttl.ts` — solo LRU, sin expiración por tiempo ⏱️
@@ -274,8 +274,7 @@ Al relanzar `npm run dev`, el log de `gateway` reporta
   en su último estado conocido si dejan de mandar heartbeat)
 
 ### 🗺️ Roadmap
-
-Watchdog en `api-gateway` para marcar `offline` a nodos sin heartbeat
+Catch en `api-gateway` para marcar `offline` a nodos sin heartbeat
 reciente (umbral configurable, ej. 30s) y reflejarlo en el dashboard, en
 lugar de mantener el último estado indefinidamente.
 

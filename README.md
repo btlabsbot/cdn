@@ -1,4 +1,4 @@
-# ⚡ LynxNodes CDN
+# ⚡ LynxNodes CDN - v.1.0b
 
 > Una red de entrega de contenido (CDN) rápida, ligera y diseñada para servir tus archivos estáticos a la máxima velocidad.
 

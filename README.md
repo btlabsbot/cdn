@@ -1,31 +1,378 @@
-# ⚡ LynxNodes CDN - v.1.0b
-> Una red de entrega de contenido (CDN) rápida, ligera y diseñada para servir tus archivos estáticos a la máxima velocidad.
+# 🪐 LynxNodes CDN
 
-Bienvenido al repositorio oficial de **LynxNodes CDN**. Este proyecto nace con la idea de proporcionar una solución sencilla y eficiente para alojar y distribuir assets web (imágenes, CSS, JavaScript, fuentes, etc.) reduciendo la latencia y mejorando el tiempo de carga de tus proyectos.
+CDN distribuido en fase **beta** (`v1.0b`), estructurado como **monorepo
+con npm workspaces**: una red de nodos de cacheo/edge (`cdn-engine`)
+coordinados por un gateway central (`api-gateway`) que expone su estado a
+través de un dashboard (`lynx-hub`). Código y mensajes en español.
 
-## 🚀 Características Principales
-* **Rendimiento:** Diseñado para manejar múltiples peticiones con el mínimo consumo de recursos.
-* **Fácil Integración:** Rutas claras y predecibles para acceder a tus archivos.
-* **Ligero:** Código limpio, moderno y sin dependencias innecesarias.
-* **Open Source:** Abierto a la comunidad para mejoras y colaboraciones.
+## 🏗️ Arquitectura
+```
+lynx-shared  →  cdn-engine (cachea/sirve contenido)
+                     │  se registra y manda heartbeat
+                     ▼
+             api-gateway (registra nodos, autentica, persiste en disco)
+                     ▲
+                     │  consulta login + estado de nodos
+             lynx-hub (dashboard en vivo, Next.js)
+```
 
-## 🛠️ Tecnologías Utilizadas
-* Node.js / Express
-* Redis (para caché)
-* Nginx
+- **`cdn-engine`** 🌐 — nodo edge (Express). Cachea en memoria peticiones a
+  orígenes externos vía `/proxy` (estrategia LRU) y sirve archivos propios
+  subidos vía `/upload` / `GET /:filename`, funcionando como origin/edge
+  estático. Cada instancia se identifica con `NODE_ID` y `NODE_REGION`; el
+  despliegue soporta N instancias en paralelo (ver "Segundo nodo").
+- **`api-gateway`** 🛰️ — servicio de control (Express). Recibe registro y
+  heartbeat de cada `cdn-engine`, persiste el estado de la flota en disco,
+  y gestiona autenticación (credenciales, emisión/verificación de sesión)
+  para el dashboard y las rutas de gestión de archivos.
+- **`lynx-hub`** 📊 — frontend (Next.js App Router). Dashboard de estado de
+  nodos, flujo de login/registro, e interfaz de subida de archivos que
+  habla directamente contra `cdn-engine`.
+- **`shared`** 📦 — paquete interno (`@lynxnodes/shared`) con tipos, schemas
+  de validación y utilidades de auth (cookies, firma/verificación de
+  sesión) compartidos entre `api-gateway` y `cdn-engine`, para garantizar
+  un contrato de datos y esquema de sesión consistentes entre ambos.
 
-## 📦 Instalación y Uso Local
-Si quieres correr este CDN en tu propia máquina o servidor, sigue estos pasos:
-1. Clona el repositorio:
-   ```bash
-   git clone https://github.com/lynxnodesgit/lynxnodes-cdn.git
-   ```
-2. Instala las dependencias:
-   ```bash
-   npm install
-   ```
-3. Ejecuta
-   ```bash
-   npm run dev
-   ```
-Y listo! Ya tienes tu CDN corriendo 🎉
+## 📁 Estructura del repositorio
+```
+lynxnodes-cdn/
+├── README.md                  # este archivo
+├── package.json               # raíz del monorepo (npm workspaces + scripts "dev"/"lynxcdn")
+├── tsconfig.base.json          # config de TypeScript compartida
+├── lynxnodes.config.json       # configuración por defecto de "npm run dev" (se autogenera)
+├── scripts/
+│   ├── dev.js                  # wrapper interactivo de "npm run dev" (preguntas, colores, puertos)
+│   ├── lynxcdn.js               # CLI: gestiona lynxnodes.config.json (reset / config / help)
+│   └── lib/colors.js            # utilidades de color/caja de consola, compartidas por ambos scripts
+└── packages/
+    ├── shared/                 # tipos, schemas y auth compartidos
+    │   └── src/
+    │       ├── auth/           # cookies.ts, session.ts (firma/verifica lynx_session)
+    │       ├── schemas/        # validación (auth.schema.ts, node.schema.ts)
+    │       └── types/          # node.types.ts, cache.types.ts
+    │
+    ├── cdn-engine/             # el "nodo" CDN (Express, puerto 8080)
+    │   └── src/
+    │       ├── cache/          # LRU en memoria (strategies/lru.ts, storage/memory.ts)
+    │       ├── storage/        # assetStore.ts — archivos subidos, persistidos en disco
+    │       ├── routes/         # proxy.ts, upload.ts, assets.ts, health.ts
+    │       ├── services/       # gatewayClient.ts — registro + heartbeat al gateway
+    │       ├── middleware/     # cors.ts, logging.ts, requireAuth.ts
+    │       └── server.ts, index.ts
+    │
+    ├── api-gateway/            # panel central (Express, puerto 3000)
+    │   └── src/
+    │       ├── controllers/    # auth.controller.ts, nodes.controller.ts
+    │       ├── services/       # auth.service.ts, node.service.ts, store.ts,
+    │       │                   # credentialStore.ts
+    │       ├── routes/v1/      # auth.routes.ts, nodes.routes.ts
+    │       ├── middleware/     # requireAuth.ts, errorHandler.ts
+    │       └── config/env.ts, index.ts
+    │
+    └── lynx-hub/                # dashboard (Next.js App Router, puerto 3001)
+        ├── app/
+        │   ├── page.tsx         # portada
+        │   ├── login/           # inicio de sesión
+        │   ├── register/        # alta (deshabilitado por defecto)
+        │   ├── dashboard/        # lista de nodos en vivo
+        │   ├── upload/           # subir/gestionar archivos
+        │   └── settings/         # cuenta / restablecer contraseña
+        ├── components/            # AuthCard, Banner, FormField, PageHeader...
+        └── lib/                   # apiClient.ts, useRequireAuth.ts
+```
+
+## 🔄 Flujo de datos
+1. **Arranque de un nodo**: al iniciar, `cdn-engine` llama a
+   `services/gatewayClient.ts`, que hace `POST /api/v1/nodes` contra
+   `api-gateway` para registrarse (id, región, URL) y luego repite un
+   `POST /api/v1/nodes/:id/heartbeat` cada `HEARTBEAT_INTERVAL_MS`
+   (10s por defecto) para reportar sus stats de caché.
+2. **Persistencia en el gateway**: `api-gateway` guarda ese registro en
+   `packages/api-gateway/data/nodes.json`, así que un nodo ya conocido
+   reaparece tras reiniciar (solo espera su próximo heartbeat).
+3. **Login**: `lynx-hub` pide credenciales en `/login`; `api-gateway` las
+   valida contra `packages/api-gateway/data/auth.json` (solo guarda
+   salt+hash) y emite la cookie firmada `lynx_session`. Esa misma cookie la
+   verifican **tanto** `api-gateway` **como** `cdn-engine` (por eso
+   `AUTH_SECRET` debe ser idéntico en ambos) — así las rutas de archivos en
+   el `cdn-engine` también quedan protegidas, no solo el dashboard.
+4. **Dashboard**: con sesión activa, `lynx-hub` consulta
+   `GET /api/v1/nodes` para pintar la lista de nodos y su estado
+   (`cacheHitRate`, región, última vez visto, etc.) en `/dashboard`.
+5. **Cache de proxy**: `GET /proxy?url=...` en `cdn-engine` cachea en
+   memoria (LRU) la respuesta del origen externo y responde con
+   `X-Cache: MISS` (primera vez) o `X-Cache: HIT` (repetidas).
+6. **Subida y servido de archivos**: `POST /upload` (multipart, campo
+   `file`) guarda el archivo en disco vía `storage/assetStore.ts`
+   (persiste entre reinicios, a diferencia del caché LRU), y queda
+   accesible al instante en `GET /:filename` — el "router de dominio" que
+   sirve cada archivo por su nombre, como un CDN estático real.
+
+## 🔌 Qué endpoints expone cada servicio
+
+**`api-gateway` (puerto 3000, prefijo `/api/v1`)**
+
+| Ruta | Método | Auth | Qué hace |
+|---|---|---|---|
+| `/auth/config` | GET | No | Config pública (p.ej. si el registro está activo) |
+| `/auth/login` | POST | No | Inicia sesión, emite cookie `lynx_session` |
+| `/auth/register` | POST | No* | Alta de cuenta (*rechazada si `ALLOW_REGISTRATION` no es `true`) |
+| `/auth/logout` | POST | No | Cierra sesión |
+| `/auth/me` | GET | Sí | Datos del usuario logueado |
+| `/auth/change-password` | POST | Sí | Cambia contraseña |
+| `/nodes` | POST | No* | Un `cdn-engine` se registra a sí mismo (*sin sesión, es máquina a máquina) |
+| `/nodes` | GET | Sí | Lista de nodos para el dashboard |
+| `/nodes/:id` | GET | Sí | Detalle de un nodo |
+| `/nodes/:id/heartbeat` | POST | No* | Un `cdn-engine` reporta su estado (*idem) |
+
+**`cdn-engine` (puerto 8080)**
+
+| Ruta | Método | Auth | Qué hace |
+|---|---|---|---|
+| `/health` | GET | No | Estado del nodo + stats de caché |
+| `/proxy?url=...` | GET | No | Cachea y sirve contenido de un origen externo |
+| `/upload` | POST | Sí | Sube un archivo (form-data, campo `file`) |
+| `/upload` | GET | Sí | Lista los archivos subidos |
+| `/upload/:filename` | DELETE | Sí | Borra un archivo |
+| `/:filename` | GET | No | Sirve un archivo ya subido (catch-all, va al final) |
+
+## 🚀 Puesta en marcha
+
+### 1️⃣ Instalar dependencias
+Monorepo con **npm workspaces**, instalación única desde la raíz:
+```powershell
+npm install
+```
+
+### 2️⃣ Levantar el stack completo
+```powershell
+npm run dev
+```
+
+`scripts/dev.js` pregunta primero en consola el **nombre del sitio**, el
+**nombre/prefijo de los nodos** y **cuántos quieres levantar** (Enter para
+usar el valor por defecto), y luego usa `concurrently` para levantar
+`api-gateway` (puerto 3000), una o varias instancias de `cdn-engine`
+(puerto `8080`, `8081`, `8082`... con `GATEWAY_URL=http://localhost:3000`)
+y `lynx-hub` (puerto 3001) en un solo proceso, con logs prefijados por
+servicio (`gateway`, `<prefijo-nodo>`, `hub`).
+
+Para saltarte las preguntas (scripts, CI) define las variables de entorno
+antes de arrancar:
+```powershell
+$env:NODE_ID="mi-nodo"; $env:NODE_COUNT="2"; $env:SITE_NAME="Mi CDN"; npm run dev
+```
+
+`Ctrl+C` en esa terminal termina todos los procesos.
+
+En `http://localhost:3001` se sirve el dashboard; el nodo `node-local`
+(o `node-local-1`, `node-local-2`... si pediste varios) aparece
+automáticamente tras el registro y primer heartbeat.
+
+> 🔑 **Usuario y contraseña por defecto: `admin` / `admin`.** Se crean
+> automáticamente en el primer arranque de `api-gateway` y también se
+> muestran en el resumen coloreado que imprime `npm run dev`. Ver
+> [3.2 🔐 Autenticación](#32--autenticación) para cambiarlas o
+> configurarlas antes del primer arranque.
+
+#### 🎨 Configuración interactiva, logs coloreados y puertos
+
+La consola de `npm run dev` está pensada para leerse de un vistazo:
+
+- **Prompt interactivo**: pregunta nombre del sitio, prefijo de nodos y
+  cuántos levantar. Si escribes algo que no sea un número entero ≥ 1 en
+  "¿cuántos nodos?", te avisa y te vuelve a preguntar (hasta 3 intentos)
+  en vez de asumir el valor por defecto en silencio.
+- **Chequeo de puertos**: antes de arrancar comprueba que los puertos del
+  gateway, el hub y cada nodo estén libres; si alguno ya está en uso lo
+  avisa en amarillo (no bloquea el arranque, solo avisa).
+- **Resumen final** en una caja con bordes: sitio, nodos, prefijo, URL de
+  cada servicio, ruta del archivo de configuración y las credenciales de
+  acceso por defecto (`admin` / `admin`, o las que hayas puesto en
+  `ADMIN_USERNAME`/`ADMIN_PASSWORD`).
+- Los colores se desactivan solos si la salida no es una terminal (por
+  ejemplo al redirigirla a un archivo) o si defines la variable
+  `NO_COLOR`.
+
+#### 💾 Configuración por defecto en `lynxnodes.config.json`
+
+Los valores que aparecen entre corchetes en cada pregunta
+(`[LynxNodes]`, `[node-local]`, `[1]`) se guardan en
+**`lynxnodes.config.json`**, en la raíz del repo:
+
+```json
+{
+  "SITE_NAME": "LynxNodes",
+  "NODE_ID": "node-local",
+  "NODE_COUNT": "1"
+}
+```
+
+Cada vez que arrancas, ese archivo se actualiza con lo último que hayas
+usado (incluye además `updatedAt` y `version`), así que la próxima vez el
+Enter te lleva directo a tu configuración habitual. Si el archivo no
+existe o está corrupto, `npm run dev` lo vuelve a crear con los valores de
+fábrica de arriba.
+
+#### 🧹 `lynxcdn` — borrar la configuración guardada
+
+Para olvidarte de la configuración anterior y volver a los valores de
+fábrica (o simplemente inspeccionar qué hay guardado), usa el comando
+`lynxcdn`:
+
+```powershell
+# Ver la configuración guardada actualmente
+npm run lynxcdn -- config
+
+# Borrarla (pide confirmación)
+npm run lynxcdn -- reset
+
+# Borrarla sin pedir confirmación (útil en scripts/CI)
+npm run lynxcdn -- reset --yes
+
+# Ver la ayuda
+npm run lynxcdn -- help
+```
+
+También puedes llamarlo directamente con Node (`node scripts/lynxcdn.js
+reset`), o dejarlo disponible como comando global `lynxcdn` en tu PATH
+haciendo `npm link` en la raíz del repo.
+
+### 3️⃣ Verificación manual del cache (opcional)
+```powershell
+Invoke-RestMethod http://localhost:8080/health
+Invoke-WebRequest "http://localhost:8080/proxy?url=https://httpbin.org/json" -UseBasicParsing | Select-Object -ExpandProperty Headers
+```
+Primera vez: `X-Cache: MISS`. Repite la llamada: `X-Cache: HIT`.
+
+### 3.1 📤 Subida de archivos y routing por nombre
+`cdn-engine` acepta subidas y sirve cada archivo directamente por su
+nombre (routing estático):
+
+```powershell
+# Subir un archivo (form-data, campo "file")
+Invoke-RestMethod -Uri http://localhost:8080/upload -Method Post -Form @{ file = Get-Item .\imagen.png }
+
+# Queda disponible al instante en:
+# http://localhost:8080/imagen.png
+
+# Listar todo lo subido
+Invoke-RestMethod http://localhost:8080/upload
+```
+
+Interfaz de subida drag-and-drop en `http://localhost:3001/upload`.
+
+Los archivos se guardan en `packages/cdn-engine/uploads/` (configurable con
+`UPLOADS_DIR`) y persisten entre reinicios, a diferencia del cache LRU de
+`/proxy`, que es solo en memoria.
+
+### 3.2 🔐 Autenticación
+`/dashboard` y `/upload` requieren sesión activa. `npm run dev` provisiona
+credenciales por defecto:
+
+```
+usuario:     admin
+contraseña:  admin
+```
+
+Configurables en el primer arranque vía variables de entorno en
+`api-gateway` (solo se leen la primera vez, ver nota debajo):
+
+```powershell
+$env:ADMIN_USERNAME="tu-usuario"; $env:ADMIN_PASSWORD="tu-contraseña"
+```
+
+> ⚠️ **Persistencia de credenciales:** en el primer arranque, `api-gateway`
+> toma `ADMIN_USERNAME`/`ADMIN_PASSWORD` (default `admin`/`admin`) y crea
+> la cuenta inicial en `packages/api-gateway/data/auth.json` (solo
+> salt + hash, sin texto plano). A partir de ahí esas variables se ignoran
+> para esa cuenta; el cambio de contraseña se hace desde
+> **Panel → Cuenta → Restablecer contraseña** y persiste entre reinicios.
+> Para resetear por completo, eliminar el archivo y reiniciar
+> `api-gateway`.
+
+El registro de cuentas está **deshabilitado por defecto**: `/login` no
+expone el enlace de registro, `/register` devuelve un aviso en lugar del
+formulario, y la API rechaza la petición aunque se invoque directamente.
+Habilitarlo permite que cualquier cliente con acceso a la URL cree una
+cuenta con acceso completo al panel (lectura de nodos, subida/borrado de
+archivos):
+
+```powershell
+$env:ALLOW_REGISTRATION="true"
+```
+
+La sesión es una cookie firmada (`lynx_session`) emitida por `api-gateway`
+en login/registro y verificada tanto por `api-gateway` como por
+`cdn-engine` con el mismo secreto, lo que extiende la protección a las
+rutas de gestión de archivos (`GET/POST /upload`, `DELETE /upload/:filename`)
+además del dashboard. Requiere **`AUTH_SECRET` idéntico en ambos
+servicios**:
+
+```powershell
+$env:AUTH_SECRET="una-cadena-larga-y-aleatoria"
+```
+
+Sin definir, ambos servicios usan el mismo valor de desarrollo por defecto
+para que `npm run dev` funcione sin configuración adicional — 🚫 no apto
+para producción.
+
+Rutas sin autenticación por diseño: `POST /api/v1/nodes` y
+`POST /api/v1/nodes/:id/heartbeat` (llamadas machine-to-machine desde
+`cdn-engine`, sin sesión de navegador), y `GET /:filename` en `cdn-engine`
+(servir un archivo subido es el propósito del link público del CDN).
+
+### 4️⃣ Segundo nodo (opcional)
+
+`npm run dev` pregunta cuántos nodos levantar (y ya crea `-1`, `-2`... si
+pides más de uno). Para añadir uno más *a mano*, en una terminal aparte:
+
+```powershell
+cd packages\cdn-engine
+$env:NODE_ID="node-local-2"; $env:NODE_REGION="eu-west"; $env:PORT="8081"; $env:GATEWAY_URL="http://localhost:3000"; npm run dev
+```
+
+Solicitar contenido distinto (`/proxy?url=...` en el `:8081`) hace divergir
+su `cacheHitRate` del primero, visible en el dashboard.
+
+### 5️⃣ 💾 Persistencia
+`api-gateway` persiste el registro de nodos en
+`packages/api-gateway/data/nodes.json`. Tras un reinicio de `npm run dev`,
+los nodos previamente conocidos reaparecen con el mismo `id`, a la espera
+del siguiente heartbeat del `cdn-engine` correspondiente.
+
+Verificación:
+```powershell
+Get-Content packages\api-gateway\data\nodes.json
+```
+Al relanzar `npm run dev`, el log de `gateway` reporta
+`loaded 1 node(s) from ...`.
+
+## ⚠️ Estado actual (beta) — qué falta a propósito
+- El cache del `/proxy` sigue siendo solo en memoria (LRU); los archivos
+  subidos por `/upload` sí persisten en disco (`storage/assetStore.ts`)
+- `ttl.ts` — solo LRU, sin expiración por tiempo ⏱️
+- `rateLimit.ts` — sin protección todavía 🛡️
+- `lynx-term` (CLI de administración completa) — pendiente 🚧. Ya existe
+  `lynxcdn` (`scripts/lynxcdn.js`), pero de momento solo gestiona la
+  configuración de arranque (`lynxnodes.config.json`), no la flota de
+  nodos.
+- Nodos caídos no se marcan `offline` automáticamente (se quedan congelados
+  en su último estado conocido si dejan de mandar heartbeat)
+
+### 🗺️ Roadmap
+
+Watchdog en `api-gateway` para marcar `offline` a nodos sin heartbeat
+reciente (umbral configurable, ej. 30s) y reflejarlo en el dashboard, en
+lugar de mantener el último estado indefinidamente.
+
+## 🧰 Stack
+- **Backend**: Node.js + Express + TypeScript (`api-gateway`, `cdn-engine`)
+- **Frontend**: Next.js 14 (App Router) + React 18 (`lynx-hub`)
+- **Monorepo**: npm workspaces + `concurrently` para levantar todo con un
+  solo `npm run dev`
+- **Auth**: cookie de sesión firmada (`lynx_session`), sin dependencias
+  externas de auth
+- **Consola**: logs coloreados con ANSI a mano (sin dependencias) en
+  `scripts/dev.js` y `scripts/lynxcdn.js`, compartidos vía
+  `scripts/lib/colors.js`

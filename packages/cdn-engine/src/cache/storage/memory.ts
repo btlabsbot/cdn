@@ -30,7 +30,6 @@ export class MemoryStorage implements CacheStrategy {
   }
 
   set(entry: CacheEntry): void {
-    // Reject single entries larger than the whole cache — nothing to evict for them.
     if (entry.size > this.maxSizeBytes) {
       return;
     }

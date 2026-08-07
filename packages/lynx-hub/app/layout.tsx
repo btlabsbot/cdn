@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "../styles/globals.css";
+import { SITE_NAME } from "../lib/siteConfig";
 
 export const metadata: Metadata = {
-  title: "LynxNodes — Console",
-  description: "Estado en vivo de la infraestructura CDN de LynxNodes",
+  title: `${SITE_NAME} — Console`,
+  description: `Estado en vivo de la infraestructura CDN de ${SITE_NAME}`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,5 @@
 import Footer from "./Footer";
+import { SITE_NAME } from "../lib/siteConfig";
 
 export default function AuthCard({
   title,
@@ -21,7 +22,7 @@ export default function AuthCard({
         <As className="auth-card" onSubmit={onSubmit}>
           <div className="auth-brand">
             <span className="brand-mark" aria-hidden="true" />
-            LynxNodes
+            {SITE_NAME}
           </div>
           <h1>{title}</h1>
           <p className="auth-subtitle">{subtitle}</p>

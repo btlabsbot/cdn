@@ -10,15 +10,6 @@ export interface AssetMeta {
 
 const METADATA_FILE = "assets.json";
 
-/**
- * Store for user-uploaded files. Writes bytes directly to disk (uploadsDir)
- * plus a JSON index with metadata, so the domain router (GET /:filename)
- * can resolve a filename to its content without re-reading the whole
- * directory on every request.
- *
- * Survives process restarts — unlike the in-memory LRU cache, a file a
- * user uploaded shouldn't disappear on restart.
- */
 export class AssetStore {
   private readonly dir: string;
   private readonly metaPath: string;
@@ -84,7 +75,6 @@ export class AssetStore {
 
     const filePath = join(this.dir, filename);
     if (!existsSync(filePath)) {
-      // File was deleted by hand from disk but was still in the index.
       this.index.delete(filename);
       this.persistIndex();
       return undefined;

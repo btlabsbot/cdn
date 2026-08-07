@@ -6,11 +6,6 @@ interface RegisteredNode {
   id: string;
 }
 
-/**
- * Reads real disk usage for the volume backing the uploads directory.
- * Falls back to 0 if the platform/filesystem doesn't support statfs
- * (e.g. some container setups) so a heartbeat is never blocked by it.
- */
 async function readDiskUsagePct(path: string): Promise<number> {
   try {
     const stats = await statfs(path);
@@ -25,12 +20,7 @@ async function readDiskUsagePct(path: string): Promise<number> {
   }
 }
 
-/**
- * Registers this cdn-engine instance with api-gateway and keeps sending
- * heartbeats on an interval. If the gateway is unreachable (down, wrong
- * URL, network hiccup), this logs and keeps retrying — it never crashes
- * the cache/proxy, which must keep serving regardless of the gateway.
- */
+
 export function startGatewayReporting(cache: CacheStrategy, config: EngineConfig): void {
   if (!config.gatewayUrl) {
     console.log("[cdn-engine] GATEWAY_URL not set — running standalone, no heartbeats sent");
@@ -39,9 +29,7 @@ export function startGatewayReporting(cache: CacheStrategy, config: EngineConfig
 
   const gatewayUrl = config.gatewayUrl;
   let registeredNode: RegisteredNode | null = null;
-  // Round-trip time of the previous heartbeat request. Reported on the
-  // *next* heartbeat since the current one's latency isn't known until
-  // after it completes. Starts at 0 before the first successful round trip.
+
   let lastLatencyMs = 0;
 
   async function registerSelf(): Promise<void> {
@@ -66,7 +54,6 @@ export function startGatewayReporting(cache: CacheStrategy, config: EngineConfig
 
   async function sendHeartbeat(): Promise<void> {
     if (!registeredNode) {
-      // Not registered yet (gateway was down on startup) — try again.
       await registerSelf();
       if (!registeredNode) return;
     }

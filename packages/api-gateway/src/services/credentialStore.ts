@@ -17,11 +17,6 @@ interface LegacyStoredCredential {
   hash: string;
 }
 
-/**
- * Same minimal JSON-file approach as store.ts (nodes) — no database, just
- * enough persistence so accounts (and password changes) survive a
- * restart. Never stores a plaintext password, only salt + scrypt hash.
- */
 export function loadUsers(): StoredUser[] {
   if (!existsSync(DATA_FILE)) return [];
 
@@ -33,8 +28,6 @@ export function loadUsers(): StoredUser[] {
       return parsed.users as StoredUser[];
     }
 
-    // Back-compat: the file used to hold a single { username, salt, hash }
-    // object (single-admin era, before self-registration existed).
     const legacy = parsed as LegacyStoredCredential;
     if (legacy?.username && legacy?.salt && legacy?.hash) {
       return [{ ...legacy, createdAt: new Date().toISOString() }];

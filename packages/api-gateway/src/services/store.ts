@@ -5,12 +5,6 @@ import type { Node } from "@lynxnodes/shared";
 const DATA_DIR = process.env.DATA_DIR ?? join(process.cwd(), "data");
 const DATA_FILE = join(DATA_DIR, "nodes.json");
 
-/**
- * Minimal JSON-file store. Deliberately not a real database — no native
- * deps to compile (matters a lot on Windows dev machines), no server to
- * run. Good enough for an alpha; swap for Postgres/SQLite later behind
- * this same load/save interface without touching node.service.ts.
- */
 export function loadNodes(): Map<string, Node> {
   if (!existsSync(DATA_FILE)) {
     return new Map();

@@ -14,17 +14,9 @@ export function loadConfig(): GatewayConfig {
 
   return {
     port: parseInt(process.env.PORT ?? "3000", 10),
-    // Default admin/admin so the alpha runs out of the box — only used to
-    // seed the very first account, see auth.service.ts.
     adminUsername: process.env.ADMIN_USERNAME ?? "admin",
     adminPassword: process.env.ADMIN_PASSWORD ?? "admin",
-    // Must match cdn-engine's AUTH_SECRET: it verifies the same session
-    // cookie so uploads/deletes there also require login.
     authSecret: authSecret ?? "dev-only-insecure-secret-change-me",
-    // Off by default — anyone who can reach api-gateway would otherwise be
-    // able to create an account with full dashboard/upload access. Turn it
-    // on only if you actually want open self-registration:
-    //   ALLOW_REGISTRATION=true
     allowRegistration: process.env.ALLOW_REGISTRATION === "true",
   };
 }

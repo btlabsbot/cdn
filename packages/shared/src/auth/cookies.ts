@@ -27,7 +27,6 @@ export interface CookieOptions {
   path?: string;
 }
 
-/** Builds a `Set-Cookie` header value. */
 export function serializeCookie(name: string, value: string, opts: CookieOptions = {}): string {
   const parts = [`${name}=${encodeURIComponent(value)}`];
   parts.push(`Path=${opts.path ?? "/"}`);

@@ -28,8 +28,6 @@ export function createServer(config: EngineConfig): ServerInstance {
   app.use(createHealthRouter(cache, config));
   app.use(createUploadRouter(assetStore, requireAuth));
   app.use(createProxyRouter(cache));
-  // Domain router last: it's a catch-all on /:filename, so any fixed
-  // route (/health, /upload, /proxy) must be declared before it.
   app.use(createAssetRouter(assetStore));
 
   return { app, cache, assetStore };

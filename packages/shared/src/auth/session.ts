@@ -10,14 +10,6 @@ function sign(data: string, secret: string): string {
   return createHmac("sha256", secret).update(data).digest("base64url");
 }
 
-/**
- * Signs a compact, URL-safe session token: base64url(payload).signature
- *
- * This is a minimal JWT-style token (HMAC-SHA256, no external deps) meant
- * for a single shared secret between api-gateway (issues it) and cdn-engine
- * (verifies it) — good enough for a small admin login, not a replacement
- * for a full auth provider if this ever needs multi-tenant users.
- */
 export function signSession(username: string, secret: string, ttlSeconds = 60 * 60 * 24 * 7): string {
   const now = Math.floor(Date.now() / 1000);
   const payload: SessionPayload = { sub: username, iat: now, exp: now + ttlSeconds };
@@ -26,7 +18,6 @@ export function signSession(username: string, secret: string, ttlSeconds = 60 * 
   return `${encoded}.${signature}`;
 }
 
-/** Verifies signature + expiry. Returns the payload if valid, null otherwise. */
 export function verifySession(token: string | undefined | null, secret: string): SessionPayload | null {
   if (!token) return null;
   const dotIndex = token.indexOf(".");

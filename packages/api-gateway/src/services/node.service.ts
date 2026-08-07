@@ -2,11 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { Node, RegisterNodeInput, HeartbeatInput } from "@lynxnodes/shared";
 import { loadNodes, saveNodes, dataFilePath } from "./store";
 
-/**
- * Registry backed by a JSON file on disk (see store.ts). State survives
- * process restarts. Every mutation persists immediately — fine at alpha
- * scale, revisit if write volume ever becomes a bottleneck.
- */
 class NodeService {
   private nodes: Map<string, Node> = loadNodes();
 
@@ -18,11 +13,6 @@ class NodeService {
     saveNodes(this.nodes);
   }
 
-  /**
-   * Upsert by hostname. A node that restarts (e.g. cdn-engine redeploys)
-   * re-registers with the same hostname — we want to refresh it in place,
-   * not spawn a duplicate "ghost" entry every time.
-   */
   register(input: RegisterNodeInput): Node {
     const existing = this.findByHostname(input.hostname);
     const now = new Date().toISOString();

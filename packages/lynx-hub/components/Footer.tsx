@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SITE_NAME } from "../lib/siteConfig";
 
 export default function Footer({ minimal = false }: { minimal?: boolean }) {
   const year = new Date().getFullYear();
@@ -10,7 +11,7 @@ export default function Footer({ minimal = false }: { minimal?: boolean }) {
       <div className="footer-top">
         <div className="footer-brand">
           <span className="brand-mark" aria-hidden="true" />
-          LynxNodes
+          {SITE_NAME}
           <span className="footer-meta">· Infraestructura CDN interna</span>
         </div>
 
@@ -30,7 +31,7 @@ export default function Footer({ minimal = false }: { minimal?: boolean }) {
       </div>
 
       <div className="footer-bottom">
-        <span>© {year} LynxNodes. Todos los derechos reservados.</span>
+        <span>© {year} {SITE_NAME}. Todos los derechos reservados.</span>
         <a href="https://lynxnodes.es" target="_blank" rel="noopener noreferrer">
           lynxnodes.es
         </a>

@@ -11,19 +11,11 @@ const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE_BYTES },
 });
 
-/** Strips any character that isn't safe for a filename/URL. */
 function sanitizeFilename(name: string): string {
   const cleaned = name.trim().replace(/[^a-zA-Z0-9._-]/g, "_");
   return cleaned.length > 0 ? cleaned : `file-${randomUUID().slice(0, 8)}`;
 }
 
-/**
- * Upload routes:
- *   POST   /upload            (multipart/form-data, field "file") — login required
- *     -> saves the file and returns its public URL at /:filename
- *   GET    /upload             -> lists files uploaded so far — login required
- *   DELETE /upload/:filename   -> deletes a file — login required
- */
 export function createUploadRouter(store: AssetStore, requireAuth: RequestHandler): Router {
   const router = Router();
 
@@ -47,8 +39,6 @@ export function createUploadRouter(store: AssetStore, requireAuth: RequestHandle
         return;
       }
 
-      // Optional name sent by the client (field "filename"); otherwise
-      // fall back to the uploaded file's original name.
       const requestedRaw =
         typeof req.body?.filename === "string" && req.body.filename.trim().length > 0
           ? req.body.filename
@@ -56,8 +46,6 @@ export function createUploadRouter(store: AssetStore, requireAuth: RequestHandle
 
       let finalName = sanitizeFilename(requestedRaw);
 
-      // Avoid clobbering an existing file with the same name: if it's
-      // already taken, prefix it with a short id instead of overwriting.
       if (store.has(finalName)) {
         const ext = extname(finalName);
         const base = ext ? finalName.slice(0, -ext.length) : finalName;

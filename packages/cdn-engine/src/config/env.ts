@@ -9,6 +9,10 @@ export interface EngineConfig {
   heartbeatIntervalMs: number;
   uploadsDir: string;
   authSecret: string;
+  nodeAuthSecret: string;
+  proxyMaxBytes: number;
+  proxyTimeoutMs: number;
+  corsOrigins: string[];
 }
 
 function required(name: string, fallback?: string): string {
@@ -29,5 +33,12 @@ export function loadConfig(): EngineConfig {
     heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS ?? "10000", 10),
     uploadsDir: process.env.UPLOADS_DIR ?? join(process.cwd(), "uploads"),
     authSecret: process.env.AUTH_SECRET ?? "dev-only-insecure-secret-change-me",
+    nodeAuthSecret: process.env.NODE_AUTH_SECRET ?? "dev-only-node-secret-change-me",
+    proxyMaxBytes: parseInt(process.env.PROXY_MAX_BYTES ?? String(10 * 1024 * 1024), 10),
+    proxyTimeoutMs: parseInt(process.env.PROXY_TIMEOUT_MS ?? "10000", 10),
+    corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3001")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   };
 }

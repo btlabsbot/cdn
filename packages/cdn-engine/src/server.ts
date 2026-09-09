@@ -23,7 +23,7 @@ export function createServer(config: EngineConfig): ServerInstance {
   const assetStore = new AssetStore(config.uploadsDir);
   const requireAuth = createRequireAuth(config.authSecret);
 
-  app.use(cors);
+  app.use((req, res, next) => cors(req, res, next, config.corsOrigins));
   app.use(requestLogger);
   app.use(createHealthRouter(cache, config));
   app.use(createUploadRouter(assetStore, requireAuth));

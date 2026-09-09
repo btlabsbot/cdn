@@ -20,3 +20,13 @@ export function createRequireAuth(authService: AuthService) {
     next();
   };
 }
+
+export function createRequireNodeAuth(nodeAuthSecret: string) {
+  return function requireNodeAuth(req: Request, res: Response, next: NextFunction): void {
+    if (req.headers["x-node-auth"] !== nodeAuthSecret) {
+      res.status(401).json({ error: "Invalid node credentials" });
+      return;
+    }
+    next();
+  };
+}

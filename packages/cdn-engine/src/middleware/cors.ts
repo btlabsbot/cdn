@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 
-export function cors(req: Request, res: Response, next: NextFunction): void {
+export function cors(req: Request, res: Response, next: NextFunction, allowedOrigins: string[]): void {
   const origin = req.headers.origin;
-  if (origin) {
+  if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }

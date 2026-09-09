@@ -3,6 +3,7 @@ import multer from "multer";
 import { extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { AssetStore } from "../storage/assetStore";
+import type { AuthedRequest } from "../middleware/requireAuth";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -19,7 +20,7 @@ function sanitizeFilename(name: string): string {
 export function createUploadRouter(store: AssetStore, requireAuth: RequestHandler): Router {
   const router = Router();
 
-  router.post("/upload", requireAuth, (req: Request, res: Response) => {
+  router.post("/upload", requireAuth, (req: AuthedRequest, res: Response) => {
     upload.single("file")(req, res, (err: unknown) => {
       if (err instanceof multer.MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {

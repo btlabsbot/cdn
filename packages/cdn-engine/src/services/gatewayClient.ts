@@ -36,7 +36,7 @@ export function startGatewayReporting(cache: CacheStrategy, config: EngineConfig
     try {
       const res = await fetch(`${gatewayUrl}/api/v1/nodes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Node-Auth": config.nodeAuthSecret },
         body: JSON.stringify({ hostname: config.nodeId, region: config.region }),
       });
 
@@ -67,7 +67,7 @@ export function startGatewayReporting(cache: CacheStrategy, config: EngineConfig
       const start = Date.now();
       const res = await fetch(`${gatewayUrl}/api/v1/nodes/${registeredNode.id}/heartbeat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Node-Auth": config.nodeAuthSecret },
         body: JSON.stringify({ status: "online", cacheHitRate, diskUsagePct, latencyMs: lastLatencyMs }),
       });
       lastLatencyMs = Date.now() - start;

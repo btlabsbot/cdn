@@ -1,14 +1,16 @@
 import express, { Request, Response, NextFunction } from "express";
 import { apiRouter } from "./routes";
 import { errorHandler } from "./middleware/errorHandler";
+import { loadConfig } from "./config/env";
 
 const app = express();
-const port = parseInt(process.env.PORT ?? "3000", 10);
+const config = loadConfig();
+const port = config.port;
 
 
 function cors(req: Request, res: Response, next: NextFunction): void {
   const origin = req.headers.origin;
-  if (origin) {
+  if (origin && config.corsOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
@@ -22,7 +24,7 @@ function cors(req: Request, res: Response, next: NextFunction): void {
 }
 
 app.use(cors);
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use("/api", apiRouter);
 app.use(errorHandler);
 

@@ -3,13 +3,16 @@ export interface GatewayConfig {
   adminUsername: string;
   adminPassword: string;
   authSecret: string;
+  nodeAuthSecret: string;
   allowRegistration: boolean;
+  corsOrigins: string[];
 }
 
 export function loadConfig(): GatewayConfig {
   const authSecret = process.env.AUTH_SECRET;
-  if (!authSecret && process.env.NODE_ENV === "production") {
-    throw new Error("Missing required env var: AUTH_SECRET (needed to sign login sessions)");
+  const nodeAuthSecret = process.env.NODE_AUTH_SECRET;
+  if (process.env.NODE_ENV === "production" && (!authSecret || !nodeAuthSecret)) {
+    throw new Error("AUTH_SECRET and NODE_AUTH_SECRET are required in production");
   }
 
   return {
@@ -17,6 +20,11 @@ export function loadConfig(): GatewayConfig {
     adminUsername: process.env.ADMIN_USERNAME ?? "admin",
     adminPassword: process.env.ADMIN_PASSWORD ?? "admin",
     authSecret: authSecret ?? "dev-only-insecure-secret-change-me",
-    allowRegistration: process.env.ALLOW_REGISTRATION !== "false",
+    nodeAuthSecret: nodeAuthSecret ?? "dev-only-node-secret-change-me",
+    allowRegistration: process.env.ALLOW_REGISTRATION === "true",
+    corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3001")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   };
 }

@@ -9,7 +9,7 @@ function hashPassword(password: string, salt: Buffer): Buffer {
   return scryptSync(password, salt, SCRYPT_KEY_LENGTH);
 }
 
-function buildUser(username: string, password: string): StoredUser {
+function buildUser(username: string, password: string, sessionVersion = 0): StoredUser {
   const salt = randomBytes(16);
   const hash = hashPassword(password, salt);
   return {
@@ -17,6 +17,7 @@ function buildUser(username: string, password: string): StoredUser {
     salt: salt.toString("hex"),
     hash: hash.toString("hex"),
     createdAt: new Date().toISOString(),
+    sessionVersion,
   };
 }
 
@@ -71,11 +72,15 @@ class AuthService {
   login(username: string, password: string): string | null {
     const user = this.users.get(username);
     if (!user || !this.matches(user, password)) return null;
-    return signSession(username, this.authSecret);
+    return signSession(username, this.authSecret, undefined, user.sessionVersion ?? 0);
   }
 
   verify(token: string | undefined | null): SessionPayload | null {
-    return verifySession(token, this.authSecret);
+    const payload = verifySession(token, this.authSecret);
+    if (!payload) return null;
+    const user = this.users.get(payload.sub);
+    if (!user || (payload.ver ?? 0) !== (user.sessionVersion ?? 0)) return null;
+    return payload;
   }
 
   isRegistrationAllowed(): boolean {
@@ -94,7 +99,7 @@ class AuthService {
     const user = buildUser(username, password);
     this.users.set(username, user);
     this.persist();
-    return { token: signSession(username, this.authSecret) };
+    return { token: signSession(username, this.authSecret, undefined, user.sessionVersion ?? 0) };
   }
 
   /**
@@ -105,7 +110,7 @@ class AuthService {
     const user = this.users.get(username);
     if (!user || !this.matches(user, currentPassword)) return false;
 
-    const updated = buildUser(username, newPassword);
+    const updated = buildUser(username, newPassword, (user.sessionVersion ?? 0) + 1);
     this.users.set(username, updated);
     this.persist();
     return true;

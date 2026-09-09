@@ -4,15 +4,16 @@ export interface SessionPayload {
   sub: string; // username
   iat: number; // issued-at, epoch seconds
   exp: number; // expiry, epoch seconds
+  ver?: number; // per-user session version
 }
 
 function sign(data: string, secret: string): string {
   return createHmac("sha256", secret).update(data).digest("base64url");
 }
 
-export function signSession(username: string, secret: string, ttlSeconds = 60 * 60 * 24 * 7): string {
+export function signSession(username: string, secret: string, ttlSeconds = 60 * 60 * 24 * 7, version = 0): string {
   const now = Math.floor(Date.now() / 1000);
-  const payload: SessionPayload = { sub: username, iat: now, exp: now + ttlSeconds };
+  const payload: SessionPayload = { sub: username, iat: now, exp: now + ttlSeconds, ver: version };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = sign(encoded, secret);
   return `${encoded}.${signature}`;

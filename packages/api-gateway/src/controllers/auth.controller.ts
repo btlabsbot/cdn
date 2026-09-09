@@ -91,8 +91,8 @@ export function createAuthController(authService: AuthService) {
       return;
     }
 
-    // Sessions are keyed off the username only, so the existing session
-    // cookie is still valid after this — no need to force a re-login.
+    // Password changes increment the user's session version, revoking existing
+    // cookies. The client must authenticate again with the new password.
     res.json({ ok: true });
   }
 

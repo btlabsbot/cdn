@@ -9,6 +9,7 @@ export interface StoredUser {
   salt: string; // hex
   hash: string; // hex
   createdAt: string;
+  sessionVersion?: number;
 }
 
 interface LegacyStoredCredential {

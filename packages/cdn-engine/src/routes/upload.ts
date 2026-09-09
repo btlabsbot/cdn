@@ -9,7 +9,7 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_SIZE_BYTES },
+  limits: { fileSize: MAX_FILE_SIZE_BYTES, files: 1, fields: 5, parts: 6, fieldSize: 1024 * 16 },
 });
 
 function sanitizeFilename(name: string): string {

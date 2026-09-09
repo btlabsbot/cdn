@@ -24,6 +24,12 @@ function required(name: string, fallback?: string): string {
 }
 
 export function loadConfig(): EngineConfig {
+  const authSecret = process.env.AUTH_SECRET;
+  const nodeAuthSecret = process.env.NODE_AUTH_SECRET;
+  if (process.env.NODE_ENV === "production" && (!authSecret || !nodeAuthSecret)) {
+    throw new Error("AUTH_SECRET and NODE_AUTH_SECRET are required in production");
+  }
+
   return {
     port: parseInt(process.env.PORT ?? "8080", 10),
     nodeId: required("NODE_ID", "local-dev-node"),
@@ -32,8 +38,8 @@ export function loadConfig(): EngineConfig {
     gatewayUrl: process.env.GATEWAY_URL ?? null,
     heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS ?? "10000", 10),
     uploadsDir: process.env.UPLOADS_DIR ?? join(process.cwd(), "uploads"),
-    authSecret: process.env.AUTH_SECRET ?? "dev-only-insecure-secret-change-me",
-    nodeAuthSecret: process.env.NODE_AUTH_SECRET ?? "dev-only-node-secret-change-me",
+    authSecret: authSecret ?? "dev-only-insecure-secret-change-me",
+    nodeAuthSecret: nodeAuthSecret ?? "dev-only-node-secret-change-me",
     proxyMaxBytes: parseInt(process.env.PROXY_MAX_BYTES ?? String(10 * 1024 * 1024), 10),
     proxyTimeoutMs: parseInt(process.env.PROXY_TIMEOUT_MS ?? "10000", 10),
     corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3001")

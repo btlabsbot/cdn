@@ -2,3 +2,9 @@ node_modules/
 .next/
 dist/
 *.log
+.env
+.env.local
+.env.development.local
+.env.production
+.agents
+skills-lock.json

@@ -19,6 +19,10 @@ export function createAssetRouter(store: AssetStore): Router {
     }
 
     res.setHeader("Content-Type", asset.meta.contentType);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    if (["text/html", "application/xhtml+xml", "image/svg+xml"].includes(asset.meta.contentType.split(";", 1)[0].trim().toLowerCase())) {
+      res.setHeader("Content-Disposition", "attachment");
+    }
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("X-Cache", "ASSET");
     res.send(asset.buffer);

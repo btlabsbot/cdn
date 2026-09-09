@@ -27,7 +27,7 @@ export function createServer(config: EngineConfig): ServerInstance {
   app.use(requestLogger);
   app.use(createHealthRouter(cache, config));
   app.use(createUploadRouter(assetStore, requireAuth));
-  app.use(createProxyRouter(cache));
+  app.use(createProxyRouter(cache, config.proxyMaxBytes, config.proxyTimeoutMs));
   app.use(createAssetRouter(assetStore));
 
   return { app, cache, assetStore };

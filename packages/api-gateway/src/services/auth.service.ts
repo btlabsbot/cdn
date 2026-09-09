@@ -47,6 +47,10 @@ class AuthService {
       return;
     }
 
+    if (process.env.NODE_ENV === "production" && (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD)) {
+      throw new Error("ADMIN_USERNAME and ADMIN_PASSWORD are required when creating the first production account");
+    }
+
     // First boot: seed one account from env vars and persist it.
     const seedUser = buildUser(config.adminUsername, config.adminPassword);
     this.users = new Map([[seedUser.username, seedUser]]);

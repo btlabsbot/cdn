@@ -13,37 +13,16 @@ import {
   type UploadedAsset,
 } from "../../lib/apiClient";
 import { useRequireAuth } from "../../lib/useRequireAuth";
+import { formatBytes, timeAgo, clampPct, shortId } from "../../lib/format";
 import Footer from "../../components/Footer";
 import CheckingState from "../../components/CheckingState";
 import { ErrorBanner } from "../../components/Banner";
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  online: "var(--signal-online)",
-  degraded: "var(--signal-degraded)",
-  offline: "var(--signal-offline)",
-};
 
 const STATUS_LABEL: Record<string, string> = {
   online: "en línea",
   degraded: "degradado",
   offline: "fuera de línea",
 };
-
-function timeAgo(iso: string): string {
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 5) return "justo ahora";
-  if (seconds < 60) return `hace ${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `hace ${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  return `hace ${hours}h`;
-}
 
 function StatusDot({ status }: { status: string }) {
   const color = STATUS_COLOR[status] ?? "var(--text-muted)";

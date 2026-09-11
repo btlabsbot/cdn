@@ -9,10 +9,11 @@ import { fetchMe, type AuthUser } from "./apiClient";
  * /login if there isn't one. Returns the checking/user state so the page
  * can avoid flashing protected content before the check resolves.
  */
-export function useRequireAuth(): { checking: boolean; user: AuthUser | null } {
+export function useRequireAuth(): { checking: boolean; user: AuthUser | null; networkError: string | null } {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [networkError, setNetworkError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,8 +28,11 @@ export function useRequireAuth(): { checking: boolean; user: AuthUser | null } {
         setUser(me);
         setChecking(false);
       })
-      .catch(() => {
-        if (!cancelled) router.replace("/login");
+      .catch((err) => {
+        if (cancelled) return;
+        // Network/gateway failure with unknown session: show retry, don't bounce to /login.
+        setNetworkError((err as Error).message);
+        setChecking(false);
       });
 
     return () => {
@@ -36,5 +40,5 @@ export function useRequireAuth(): { checking: boolean; user: AuthUser | null } {
     };
   }, [router]);
 
-  return { checking, user };
+  return { checking, user, networkError };
 }

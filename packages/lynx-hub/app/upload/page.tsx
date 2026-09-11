@@ -3,21 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchAssets, uploadFile, deleteAsset, AuthError, type UploadedAsset } from "../../lib/apiClient";
+import { formatBytes } from "../../lib/format";
 import { useRequireAuth } from "../../lib/useRequireAuth";
 import Footer from "../../components/Footer";
 import PageHeader from "../../components/PageHeader";
 import { ErrorBanner } from "../../components/Banner";
 import CheckingState from "../../components/CheckingState";
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 export default function UploadPage() {
   const router = useRouter();
-  const { checking } = useRequireAuth();
+  const { checking, networkError } = useRequireAuth();
 
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +46,14 @@ export default function UploadPage() {
     reload();
   }, [checking, reload]);
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null, input?: HTMLInputElement | null) {
     if (!files || files.length === 0) return;
+    const tooBig = Array.from(files).find((f) => f.size > MAX_FILE_SIZE_BYTES);
+    if (tooBig) {
+      setError(`"${tooBig.name}" supera el máximo de 50 MB`);
+      if (input) input.value = "";
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
@@ -66,14 +69,22 @@ export default function UploadPage() {
       setError((err as Error).message);
     } finally {
       setUploading(false);
+      if (input) input.value = "";
     }
   }
 
   function copyToClipboard(url: string) {
-    navigator.clipboard?.writeText(url).then(() => {
+    const done = () => {
       setCopiedUrl(url);
       setTimeout(() => setCopiedUrl(null), 1500);
-    });
+    };
+    try {
+      const p = navigator.clipboard?.writeText(url);
+      if (p && typeof p.then === "function") p.then(done).catch(() => setError("No se pudo copiar (portapapeles no disponible)"));
+      else done();
+    } catch {
+      setError("No se pudo copiar (portapapeles no disponible)");
+    }
   }
 
   async function handleDelete(filename: string) {
@@ -96,6 +107,17 @@ export default function UploadPage() {
 
   if (checking) return <CheckingState />;
 
+  if (networkError) {
+    return (
+      <main className="inner-page">
+        <PageHeader eyebrow="GESTIÓN DE ARCHIVOS" title="Archivos" subtitle="No se pudo verificar la sesión." />
+        <ErrorBanner>No se puede conectar con api-gateway ({networkError}). ¿Está corriendo? Reintenta.</ErrorBanner>
+        <button className="btn" onClick={() => window.location.reload()}>Reintentar</button>
+        <Footer />
+      </main>
+    );
+  }
+
   return (
     <main className="inner-page">
       <PageHeader
@@ -109,8 +131,17 @@ export default function UploadPage() {
       />
 
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Subir archivos"
         className={`dropzone ${dragOver ? "dropzone--active" : ""}`}
         onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -127,7 +158,7 @@ export default function UploadPage() {
           type="file"
           multiple
           hidden
-          onChange={(e) => handleFiles(e.target.files)}
+          onChange={(e) => handleFiles(e.target.files, e.target)}
         />
         {uploading ? (
           <p className="dropzone-title">Subiendo…</p>

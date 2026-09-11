@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { atomicWriteJsonSync, CorruptStoreError, ensureDirSync } from "@lynxnodes/shared";
 
 const DATA_DIR = process.env.DATA_DIR ?? join(process.cwd(), "data");
 const DATA_FILE = join(DATA_DIR, "auth.json");
@@ -21,12 +22,18 @@ interface LegacyStoredCredential {
 export function loadUsers(): StoredUser[] {
   if (!existsSync(DATA_FILE)) return [];
 
+  let parsed: unknown;
   try {
     const raw = readFileSync(DATA_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    // Fail closed: never return [] on corruption (that would trigger re-seed and wipe users).
+    throw new CorruptStoreError(DATA_FILE, err);
+  }
 
-    if (Array.isArray(parsed?.users)) {
-      return parsed.users as StoredUser[];
+  try {
+    if (Array.isArray((parsed as { users?: unknown })?.users)) {
+      return (parsed as { users: StoredUser[] }).users;
     }
 
     const legacy = parsed as LegacyStoredCredential;
@@ -34,19 +41,17 @@ export function loadUsers(): StoredUser[] {
       return [{ ...legacy, createdAt: new Date().toISOString() }];
     }
 
-    return [];
+    throw new Error("unrecognized auth.json shape");
   } catch (err) {
-    console.error(`[api-gateway] failed to read ${DATA_FILE}, starting empty:`, (err as Error).message);
-    return [];
+    if (err instanceof CorruptStoreError) throw err;
+    throw new CorruptStoreError(DATA_FILE, err);
   }
 }
 
 export function saveUsers(users: StoredUser[]): void {
   try {
-    if (!existsSync(DATA_DIR)) {
-      mkdirSync(DATA_DIR, { recursive: true });
-    }
-    writeFileSync(DATA_FILE, JSON.stringify({ users }, null, 2), "utf-8");
+    ensureDirSync(DATA_DIR, 0o700);
+    atomicWriteJsonSync(DATA_FILE, { users }, 0o600);
   } catch (err) {
     console.error(`[api-gateway] failed to persist to ${DATA_FILE}:`, (err as Error).message);
   }

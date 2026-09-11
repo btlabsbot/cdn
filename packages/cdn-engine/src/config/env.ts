@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { parseIntEnv, requireStrongSecret } from "@lynxnodes/shared";
 
 export interface EngineConfig {
   port: number;
@@ -24,24 +25,36 @@ function required(name: string, fallback?: string): string {
 }
 
 export function loadConfig(): EngineConfig {
-  const authSecret = process.env.AUTH_SECRET;
-  const nodeAuthSecret = process.env.NODE_AUTH_SECRET;
-  if (process.env.NODE_ENV === "production" && (!authSecret || !nodeAuthSecret)) {
-    throw new Error("AUTH_SECRET and NODE_AUTH_SECRET are required in production");
+  const authSecret = requireStrongSecret(
+    "AUTH_SECRET",
+    process.env.AUTH_SECRET,
+    "dev-only-insecure-secret-change-me"
+  );
+  const nodeAuthSecret = requireStrongSecret(
+    "NODE_AUTH_SECRET",
+    process.env.NODE_AUTH_SECRET,
+    "dev-only-node-secret-change-me"
+  );
+
+  const uploadsRaw = process.env.UPLOADS_DIR ?? join(process.cwd(), "uploads");
+  if (!uploadsRaw.trim()) throw new Error("UPLOADS_DIR must not be empty");
+  const uploadsDir = resolve(uploadsRaw);
+  if (uploadsDir === "/" || uploadsDir === resolve("/")) {
+    throw new Error("UPLOADS_DIR must not be the filesystem root");
   }
 
   return {
-    port: parseInt(process.env.PORT ?? "8080", 10),
+    port: parseIntEnv("PORT", process.env.PORT, 8080, { min: 1, max: 65535 }),
     nodeId: required("NODE_ID", "local-dev-node"),
     region: required("NODE_REGION", "local"),
-    cacheMaxSizeBytes: parseInt(process.env.CACHE_MAX_SIZE_BYTES ?? String(256 * 1024 * 1024), 10),
+    cacheMaxSizeBytes: parseIntEnv("CACHE_MAX_SIZE_BYTES", process.env.CACHE_MAX_SIZE_BYTES, 256 * 1024 * 1024, { min: 1 }),
     gatewayUrl: process.env.GATEWAY_URL ?? null,
-    heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS ?? "10000", 10),
-    uploadsDir: process.env.UPLOADS_DIR ?? join(process.cwd(), "uploads"),
-    authSecret: authSecret ?? "dev-only-insecure-secret-change-me",
-    nodeAuthSecret: nodeAuthSecret ?? "dev-only-node-secret-change-me",
-    proxyMaxBytes: parseInt(process.env.PROXY_MAX_BYTES ?? String(10 * 1024 * 1024), 10),
-    proxyTimeoutMs: parseInt(process.env.PROXY_TIMEOUT_MS ?? "10000", 10),
+    heartbeatIntervalMs: parseIntEnv("HEARTBEAT_INTERVAL_MS", process.env.HEARTBEAT_INTERVAL_MS, 10000, { min: 1000 }),
+    uploadsDir,
+    authSecret,
+    nodeAuthSecret,
+    proxyMaxBytes: parseIntEnv("PROXY_MAX_BYTES", process.env.PROXY_MAX_BYTES, 10 * 1024 * 1024, { min: 1 }),
+    proxyTimeoutMs: parseIntEnv("PROXY_TIMEOUT_MS", process.env.PROXY_TIMEOUT_MS, 10000, { min: 500 }),
     corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3001")
       .split(",")
       .map((origin) => origin.trim())

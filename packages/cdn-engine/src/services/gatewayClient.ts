@@ -32,9 +32,19 @@ export function startGatewayReporting(cache: CacheStrategy, config: EngineConfig
 
   let lastLatencyMs = 0;
 
+  async function fetchWithTimeout(url: string, init: RequestInit, ms = 5000): Promise<Response> {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), ms);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
   async function registerSelf(): Promise<void> {
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/nodes`, {
+      const res = await fetchWithTimeout(`${gatewayUrl}/api/v1/nodes`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Node-Auth": config.nodeAuthSecret },
         body: JSON.stringify({ hostname: config.nodeId, region: config.region }),
@@ -65,11 +75,12 @@ export function startGatewayReporting(cache: CacheStrategy, config: EngineConfig
 
     try {
       const start = Date.now();
-      const res = await fetch(`${gatewayUrl}/api/v1/nodes/${registeredNode.id}/heartbeat`, {
+      const res = await fetchWithTimeout(`${gatewayUrl}/api/v1/nodes/${registeredNode.id}/heartbeat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Node-Auth": config.nodeAuthSecret },
         body: JSON.stringify({ status: "online", cacheHitRate, diskUsagePct, latencyMs: lastLatencyMs }),
       });
+      // Measure round-trip of THIS heartbeat for the NEXT report (first is 0 by definition).
       lastLatencyMs = Date.now() - start;
 
       if (res.status === 404) {

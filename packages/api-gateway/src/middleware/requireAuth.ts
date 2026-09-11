@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { parseCookies, type SessionPayload } from "@lynxnodes/shared";
 import type { AuthService } from "../services/auth.service";
@@ -22,8 +23,11 @@ export function createRequireAuth(authService: AuthService) {
 }
 
 export function createRequireNodeAuth(nodeAuthSecret: string) {
+  const expected = Buffer.from(nodeAuthSecret);
   return function requireNodeAuth(req: Request, res: Response, next: NextFunction): void {
-    if (req.headers["x-node-auth"] !== nodeAuthSecret) {
+    const raw = req.headers["x-node-auth"];
+    const provided = Buffer.from(Array.isArray(raw) ? raw[0] ?? "" : raw ?? "");
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
       res.status(401).json({ error: "Invalid node credentials" });
       return;
     }

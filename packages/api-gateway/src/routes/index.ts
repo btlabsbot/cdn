@@ -3,14 +3,15 @@ import { createNodesRouter } from "./v1/nodes.routes";
 import { createAuthRouter } from "./v1/auth.routes";
 import { createAuthService } from "../services/auth.service";
 import { createRequireAuth, createRequireNodeAuth } from "../middleware/requireAuth";
-import { loadConfig } from "../config/env";
+import type { GatewayConfig } from "../config/env";
 
-export const apiRouter = Router();
+export async function createApiRouter(config: GatewayConfig) {
+  const authService = await createAuthService(config);
+  const requireAuth = createRequireAuth(authService);
+  const requireNodeAuth = createRequireNodeAuth(config.nodeAuthSecret);
 
-const config = loadConfig();
-const authService = createAuthService(config);
-const requireAuth = createRequireAuth(authService);
-const requireNodeAuth = createRequireNodeAuth(config.nodeAuthSecret);
-
-apiRouter.use("/v1/auth", createAuthRouter(authService));
-apiRouter.use("/v1/nodes", createNodesRouter(requireAuth, requireNodeAuth));
+  const apiRouter = Router();
+  apiRouter.use("/v1/auth", createAuthRouter(authService, config));
+  apiRouter.use("/v1/nodes", createNodesRouter(requireAuth, requireNodeAuth));
+  return apiRouter;
+}

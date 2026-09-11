@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction, RequestHandler } from "express";
 interface RateLimitOptions {
   windowMs: number;
   max: number;
+  message?: string;
 }
 
 interface Counter {
@@ -10,18 +11,21 @@ interface Counter {
   resetAt: number;
 }
 
-export function createRateLimit({ windowMs, max }: RateLimitOptions): RequestHandler {
+/**
+ * Fixed-window in-memory rate limiter (single-process, alpha-grade).
+ * Keyed by remote IP only (never trust X-Forwarded-For by default).
+ * Cleanup runs at most once per window per key-batch to stay O(1).
+ */
+export function createRateLimit({ windowMs, max, message }: RateLimitOptions): RequestHandler {
   const counters = new Map<string, Counter>();
   let lastSweep = Date.now();
 
   return (req: Request, res: Response, next: NextFunction): void => {
     const now = Date.now();
-    // Remote IP only: X-Forwarded-For is client-controlled unless trust proxy is set.
     const key = req.socket.remoteAddress ?? "unknown";
     const current = counters.get(key);
-    const counter = !current || current.resetAt <= now
-      ? { count: 0, resetAt: now + windowMs }
-      : current;
+    const counter =
+      !current || current.resetAt <= now ? { count: 0, resetAt: now + windowMs } : current;
 
     counter.count += 1;
     counters.set(key, counter);
@@ -35,7 +39,7 @@ export function createRateLimit({ windowMs, max }: RateLimitOptions): RequestHan
 
     if (counter.count > max) {
       res.setHeader("Retry-After", Math.ceil((counter.resetAt - now) / 1000));
-      res.status(429).json({ error: "Demasiados intentos; inténtalo más tarde" });
+      res.status(429).json({ error: message ?? "Demasiados intentos; inténtalo más tarde" });
       return;
     }
 

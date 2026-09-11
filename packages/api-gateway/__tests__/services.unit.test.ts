@@ -1,10 +1,8 @@
 // @ts-nocheck
 import { AuthService, createAuthService } from "../src/services/auth.service";
 import { nodeService } from "../src/services/node.service";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-import { loadUsers, saveUsers } from "../src/services/credentialStore";
 
 beforeEach(() => {
   // Clear persisted auth data between tests
@@ -13,16 +11,17 @@ beforeEach(() => {
   if (existsSync(authFile)) {
     rmSync(authFile);
   }
-  ;(nodeService as any).nodes.clear();
+  (nodeService as any).nodes.clear();
 });
 
 const baseConfig = {
   port: 3000,
   adminUsername: "admin",
-  adminPassword: "admin",
+  adminPassword: "admin12345",
   authSecret: "test-secret-change-me",
   nodeAuthSecret: "test-node-secret-change-me",
   corsOrigins: ["http://localhost:3001"],
+  secureCookies: false,
 };
 
 describe("AuthService", () => {
@@ -31,26 +30,31 @@ describe("AuthService", () => {
 
     let authService: AuthService;
 
-    beforeEach(() => {
-      authService = createAuthService(config);
+    beforeEach(async () => {
+      authService = await createAuthService(config);
     });
 
     describe("login", () => {
-      it("should return token for valid credentials", () => {
-        const token = authService.login("admin", "admin");
+      it("should return token for valid credentials", async () => {
+        const token = await authService.login("admin", "admin12345");
         expect(token).toBeDefined();
         expect(typeof token).toBe("string");
       });
 
-      it("should return null for invalid credentials", () => {
-        const token = authService.login("admin", "wrongpassword");
+      it("should return null for invalid credentials", async () => {
+        const token = await authService.login("admin", "wrongpassword");
+        expect(token).toBeNull();
+      });
+
+      it("should return null for unknown users (with dummy hash, no throw)", async () => {
+        const token = await authService.login("ghost", "whatever123");
         expect(token).toBeNull();
       });
     });
 
     describe("verify", () => {
-      it("should verify valid token", () => {
-        const token = authService.login("admin", "admin");
+      it("should verify valid token", async () => {
+        const token = await authService.login("admin", "admin12345");
         expect(token).toBeDefined();
         const payload = authService.verify(token);
         expect(payload).toBeDefined();
@@ -61,6 +65,17 @@ describe("AuthService", () => {
         const payload = authService.verify("invalid-token");
         expect(payload).toBeNull();
       });
+
+      it("should revoke old sessions after password change", async () => {
+        const token = await authService.login("admin", "admin12345");
+        expect(authService.verify(token)).toBeDefined();
+        const ok = await authService.changePassword("admin", "admin12345", "newpassword123");
+        expect(ok).toBe(true);
+        expect(authService.verify(token)).toBeNull();
+        const fresh = await authService.login("admin", "newpassword123");
+        expect(fresh).toBeDefined();
+        expect(authService.verify(fresh)?.ver).toBe(1);
+      });
     });
 
     describe("isRegistrationAllowed", () => {
@@ -70,14 +85,10 @@ describe("AuthService", () => {
     });
 
     describe("register", () => {
-      it("should reject registration when not allowed", () => {
-        const result = authService.register("newuser", "password123");
+      it("should reject registration when not allowed", async () => {
+        const result = await authService.register("newuser", "password123");
         expect(result).toEqual({ error: "El registro de nuevas cuentas está desactivado" });
       });
-
-      // Note: When registration is disabled, attempting to register
-      // always returns "registration disabled" regardless of whether
-      // the user exists - the check for allowRegistration happens first.
     });
   });
 
@@ -86,22 +97,31 @@ describe("AuthService", () => {
 
     let authService: AuthService;
 
-    beforeEach(() => {
-      authService = createAuthService(config);
+    beforeEach(async () => {
+      authService = await createAuthService(config);
     });
 
     describe("register", () => {
-      it("should register a new user", () => {
-        const result = authService.register("newuser", "password123");
+      it("should register a new user", async () => {
+        const result = await authService.register("newuser", "password123");
         expect(result).not.toHaveProperty("error");
         expect(result).toHaveProperty("token");
       });
 
-      it("should reject registration when user already exists", () => {
-        authService.register("existinguser", "password123");
-        const result = authService.register("existinguser", "password123");
+      it("should reject registration when user already exists", async () => {
+        await authService.register("existinguser", "password123");
+        const result = await authService.register("existinguser", "password123");
         expect(result).toEqual({ error: "Ese usuario ya existe" });
       });
+    });
+  });
+
+  describe("corrupt store", () => {
+    it("should fail closed instead of re-seeding", async () => {
+      const dataDir = process.env.DATA_DIR ?? join(process.cwd(), "data");
+      const authFile = join(dataDir, "auth.json");
+      writeFileSync(authFile, "{ not-json", "utf-8");
+      await expect(createAuthService(baseConfig)).rejects.toThrow(/Corrupt store/i);
     });
   });
 });
@@ -109,7 +129,7 @@ describe("AuthService", () => {
 describe("NodeService", () => {
   beforeEach(() => {
     // Clear the node service cache
-    ;(nodeService as any).nodes.clear();
+    (nodeService as any).nodes.clear();
   });
 
   describe("register", () => {
@@ -122,10 +142,12 @@ describe("NodeService", () => {
       expect(node.id).toBeDefined();
     });
 
-    it("should update existing node by hostname", () => {
+    it("should update existing node by hostname without overwriting region", () => {
       const node1 = nodeService.register({ hostname: "existing", region: "us-east" });
       const node2 = nodeService.register({ hostname: "existing", region: "eu-west" });
-      expect(node2.region).toBe("eu-west");
+      expect(node2.id).toBe(node1.id);
+      // Region is set at creation only: shared X-Node-Auth must not allow spoofing.
+      expect(node2.region).toBe("us-east");
       expect(node2.status).toBe("online");
     });
   });

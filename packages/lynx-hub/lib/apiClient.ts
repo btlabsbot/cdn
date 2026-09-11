@@ -26,14 +26,22 @@ function resolveBase(envValue: string | undefined, fallbackPort: number): string
   return `http://localhost:${fallbackPort}`;
 }
 
-const API_BASE = resolveBase(process.env.NEXT_PUBLIC_API_BASE, 3000);
+function apiBase(): string {
+  return resolveBase(process.env.NEXT_PUBLIC_API_BASE, 3000);
+}
 
-// cdn-engine es quien sirve los archivos subidos y el router de dominio
-// (GET /:filename), por eso apunta a un puerto distinto de api-gateway.
-const CDN_BASE = resolveBase(process.env.NEXT_PUBLIC_CDN_BASE, 8080);
+function cdnBase(): string {
+  return resolveBase(process.env.NEXT_PUBLIC_CDN_BASE, 8080);
+}
+
+/** Backend returns relative (/file.png); only prefix when relative to avoid double-origin. */
+function toAbsoluteUrl(base: string, url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${base}${url.startsWith("/") ? url : `/${url}`}`;
+}
 
 export async function fetchNodes(): Promise<Node[]> {
-  const res = await fetch(`${API_BASE}/api/v1/nodes`, { cache: "no-store", credentials: "include" });
+  const res = await fetch(`${apiBase()}/api/v1/nodes`, { cache: "no-store", credentials: "include" });
   if (res.status === 401) {
     throw new AuthError();
   }
@@ -60,13 +68,13 @@ export interface AuthConfig {
 }
 
 export async function fetchAuthConfig(): Promise<AuthConfig> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/config`, { cache: "no-store" });
+  const res = await fetch(`${apiBase()}/api/v1/auth/config`, { cache: "no-store" });
   if (!res.ok) throw new Error(`api-gateway responded ${res.status}`);
   return res.json();
 }
 
 export async function login(username: string, password: string): Promise<AuthUser> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+  const res = await fetch(`${apiBase()}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -80,7 +88,7 @@ export async function login(username: string, password: string): Promise<AuthUse
 }
 
 export async function register(username: string, password: string): Promise<AuthUser> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+  const res = await fetch(`${apiBase()}/api/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -94,18 +102,18 @@ export async function register(username: string, password: string): Promise<Auth
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${API_BASE}/api/v1/auth/logout`, { method: "POST", credentials: "include" });
+  await fetch(`${apiBase()}/api/v1/auth/logout`, { method: "POST", credentials: "include" });
 }
 
 export async function fetchMe(): Promise<AuthUser | null> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/me`, { cache: "no-store", credentials: "include" });
+  const res = await fetch(`${apiBase()}/api/v1/auth/me`, { cache: "no-store", credentials: "include" });
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`api-gateway responded ${res.status}`);
   return res.json();
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/v1/auth/change-password`, {
+  const res = await fetch(`${apiBase()}/api/v1/auth/change-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -136,7 +144,7 @@ export async function uploadFile(file: File): Promise<UploadedAsset> {
   const form = new FormData();
   form.append("file", file);
 
-  const res = await fetch(`${CDN_BASE}/upload`, { method: "POST", body: form, credentials: "include" });
+  const res = await fetch(`${cdnBase()}/upload`, { method: "POST", body: form, credentials: "include" });
   if (res.status === 401) {
     throw new AuthError();
   }
@@ -151,11 +159,11 @@ export async function uploadFile(file: File): Promise<UploadedAsset> {
   }
   // El backend devuelve una ruta relativa (/imagen.png) — se antepone el
   // origen de cdn-engine para tener el link completo y clickeable.
-  return { ...data, url: `${CDN_BASE}${data.url}` };
+  return { ...data, url: toAbsoluteUrl(cdnBase(), data.url) };
 }
 
 export async function fetchAssets(): Promise<UploadedAsset[]> {
-  const res = await fetch(`${CDN_BASE}/upload`, { cache: "no-store", credentials: "include" });
+  const res = await fetch(`${cdnBase()}/upload`, { cache: "no-store", credentials: "include" });
   if (res.status === 401) {
     throw new AuthError();
   }
@@ -165,11 +173,11 @@ export async function fetchAssets(): Promise<UploadedAsset[]> {
   const data = (await res.json()) as { files: UploadedAsset[] };
   return data.files
     .filter((a) => !!a.url)
-    .map((a) => ({ ...a, url: `${CDN_BASE}${a.url}` }));
+    .map((a) => ({ ...a, url: toAbsoluteUrl(cdnBase(), a.url) }));
 }
 
 export async function deleteAsset(filename: string): Promise<void> {
-  const res = await fetch(`${CDN_BASE}/upload/${encodeURIComponent(filename)}`, {
+  const res = await fetch(`${cdnBase()}/upload/${encodeURIComponent(filename)}`, {
     method: "DELETE",
     credentials: "include",
   });

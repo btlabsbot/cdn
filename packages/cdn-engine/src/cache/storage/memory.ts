@@ -26,7 +26,8 @@ export class MemoryStorage implements CacheStrategy {
     this.hitCount++;
     entry.lastAccessedAt = Date.now();
     this.eviction.touch(key);
-    return entry;
+    // Return a copy: callers must not mutate the cached Buffer in place.
+    return { ...entry, value: Buffer.from(entry.value) };
   }
 
   set(entry: CacheEntry): void {
@@ -34,12 +35,13 @@ export class MemoryStorage implements CacheStrategy {
       return;
     }
 
-    const existing = this.entries.get(entry.key);
+    const copy: CacheEntry = { ...entry, value: Buffer.from(entry.value) };
+    const existing = this.entries.get(copy.key);
     if (existing) {
       this.sizeBytes -= existing.size;
     }
 
-    while (this.sizeBytes + entry.size > this.maxSizeBytes && this.entries.size > 0) {
+    while (this.sizeBytes + copy.size > this.maxSizeBytes && this.entries.size > 0) {
       const evictKey = this.eviction.evictLRU();
       if (evictKey === undefined) break;
       const evicted = this.entries.get(evictKey);
@@ -49,9 +51,9 @@ export class MemoryStorage implements CacheStrategy {
       }
     }
 
-    this.entries.set(entry.key, entry);
-    this.eviction.touch(entry.key);
-    this.sizeBytes += entry.size;
+    this.entries.set(copy.key, copy);
+    this.eviction.touch(copy.key);
+    this.sizeBytes += copy.size;
   }
 
   has(key: string): boolean {
@@ -71,6 +73,8 @@ export class MemoryStorage implements CacheStrategy {
     this.entries.clear();
     this.eviction.clear();
     this.sizeBytes = 0;
+    this.hitCount = 0;
+    this.missCount = 0;
   }
 
   stats(): CacheStats {

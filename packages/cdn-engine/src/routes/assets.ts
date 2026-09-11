@@ -14,7 +14,7 @@ export function createAssetRouter(store: AssetStore): Router {
 
     const asset = store.get(filename);
     if (!asset) {
-      res.status(404).json({ error: `File "${filename}" not found` });
+      res.status(404).json({ error: `File ${JSON.stringify(filename)} not found` });
       return;
     }
 

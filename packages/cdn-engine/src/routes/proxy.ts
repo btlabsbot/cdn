@@ -11,6 +11,7 @@ function isPrivateAddress(address: string): boolean {
     if (normalized.startsWith("::ffff:")) {
       return isPrivateAddress(normalized.slice("::ffff:".length));
     }
+    // :: (unspecified), ::1 (loopback), fc00::/7 unique-local, fe80::/10 link-local
     const firstGroup = parseInt(normalized.split(":", 1)[0] || "0", 16);
     return normalized === "::" || normalized === "::1" || (firstGroup >= 0xfc00 && firstGroup <= 0xfdff) ||
       (firstGroup >= 0xfe80 && firstGroup <= 0xfebf);
@@ -21,13 +22,37 @@ function isPrivateAddress(address: string): boolean {
     return true;
   }
 
-  return octets[0] === 10 || octets[0] === 127 || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-    (octets[0] === 192 && octets[1] === 168) || (octets[0] === 169 && octets[1] === 254) || octets[0] === 0;
+  const [a, b] = octets;
+  // Loopback, private RFC1918, link-local, CGNAT, benchmark/docs, multicast/reserved, unspecified
+  return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) || (a === 169 && b === 254) || a === 0 ||
+    (a === 100 && b >= 64 && b <= 127) || // 100.64.0.0/10 CGNAT
+    (a === 192 && (b === 0 || b === 2)) || // 192.0.0.0/24, 192.0.2.0/24 (incl. 192.0.0.170/170)
+    (a === 198 && (b === 18 || b === 19 || b === 51)) || // benchmark + docs
+    (a === 203 && b === 0 && octets[2] === 113) || // 203.0.113.0/24 docs
+    a >= 224; // 224.0.0.0/4 multicast + 240.0.0.0/4 reserved
+}
+
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost",
+  "metadata.google.internal",
+  "metadata.google.internal.",
+  "169.254.169.254",
+  "metadata",
+]);
+
+function isBlockedHostname(hostname: string): boolean {
+  // Strip trailing dot (DNS FQDN form: "metadata.google.internal." === blocked)
+  const h = hostname.toLowerCase().replace(/\.+$/, "");
+  if (BLOCKED_HOSTNAMES.has(h) || h === "metadata") return true;
+  if (h.endsWith(".localhost") || h.endsWith(".internal") || h.endsWith(".local")) return true;
+  if (h === "localhost") return true;
+  return false;
 }
 
 async function assertPublicTarget(parsed: URL): Promise<void> {
   const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "metadata.google.internal") {
+  if (isBlockedHostname(hostname)) {
     throw new Error("Private network targets are not allowed");
   }
 
@@ -35,12 +60,59 @@ async function assertPublicTarget(parsed: URL): Promise<void> {
   if (addresses.length === 0 || addresses.some(({ address }) => isPrivateAddress(address))) {
     throw new Error("Private network targets are not allowed");
   }
+  // NOTE (TOCTOU): fetch() re-resolves DNS, so a rotating/DNS-rebinding name
+  // could resolve public here and private at fetch time. Full fix needs IP
+  // pinning (dial pinned IP with Host/SNI preserved). Mitigations in place:
+  // manual redirects (never auto-followed), timeout, size cap, and post-fetch
+  // re-resolution check below narrows but does not close the window.
+}
+
+async function assertStillPublic(hostname: string): Promise<void> {
+  try {
+    const clean = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (isBlockedHostname(clean)) throw new Error("blocked");
+    if (isIP(clean)) {
+      if (isPrivateAddress(clean)) throw new Error("private");
+      return;
+    }
+    const addresses = await lookup(clean, { all: true, verbatim: true });
+    if (addresses.length === 0 || addresses.some(({ address }) => isPrivateAddress(address))) {
+      throw new Error("Private network targets are not allowed");
+    }
+  } catch (err) {
+    throw new Error("Private network targets are not allowed");
+  }
 }
 
 class ResponseTooLargeError extends Error {}
 
-function cacheKeyFor(url: string): string {
-  return `origin:${url}`;
+const MAX_URL_LENGTH = 2048;
+
+/** Normalizes the cache key so ?b=2&a=1 and ?a=1&b=2 don't duplicate entries. */
+function cacheKeyFor(rawUrl: string, parsed: URL): string {
+  try {
+    const u = new URL(parsed.toString());
+    u.searchParams.sort();
+    return `origin:${u.toString()}`;
+  } catch {
+    return `origin:${rawUrl}`;
+  }
+}
+
+/** Content types that can execute script in a browser: force download, never inline. */
+function isExecutableContentType(contentType: string): boolean {
+  const base = contentType.split(";", 1)[0].trim().toLowerCase();
+  return base === "text/html" || base === "application/xhtml+xml" || base === "image/svg+xml" ||
+    base === "text/svg+xml" || base === "application/xml" || base === "text/xml" ||
+    base.startsWith("text/html");
+}
+
+function setProxySecurityHeaders(res: Response, contentType: string): void {
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  if (isExecutableContentType(contentType)) {
+    res.setHeader("Content-Disposition", "attachment");
+  }
 }
 
 export function createProxyRouter(cache: CacheStrategy, maxBytes: number, timeoutMs: number): Router {
@@ -51,6 +123,11 @@ export function createProxyRouter(cache: CacheStrategy, maxBytes: number, timeou
 
     if (typeof targetUrl !== "string" || targetUrl.length === 0) {
       res.status(400).json({ error: "Missing required query param: url" });
+      return;
+    }
+
+    if (targetUrl.length > MAX_URL_LENGTH) {
+      res.status(400).json({ error: "URL exceeds maximum length" });
       return;
     }
 
@@ -79,12 +156,12 @@ export function createProxyRouter(cache: CacheStrategy, maxBytes: number, timeou
       return;
     }
 
-    const key = cacheKeyFor(targetUrl);
+    const key = cacheKeyFor(targetUrl, parsed);
     const cached = cache.get(key);
 
     if (cached) {
       res.setHeader("X-Cache", "HIT");
-      res.setHeader("Content-Type", cached.contentType);
+      setProxySecurityHeaders(res, cached.contentType);
       res.send(cached.value);
       return;
     }
@@ -93,7 +170,16 @@ export function createProxyRouter(cache: CacheStrategy, maxBytes: number, timeou
     try {
       const controller = new AbortController();
       timeout = setTimeout(() => controller.abort(), timeoutMs);
-      const originResponse = await fetch(targetUrl, { redirect: "manual", signal: controller.signal });
+      // Redirects are never auto-followed: a 3xx to an internal target must not be fetched.
+      const originResponse = await fetch(parsed.toString(), { redirect: "manual", signal: controller.signal });
+
+      // Narrow the DNS-rebinding window: re-resolve after fetch, abort serving if now private.
+      try {
+        await assertStillPublic(parsed.hostname);
+      } catch {
+        res.status(400).json({ error: "Private network targets are not allowed" });
+        return;
+      }
 
       if (!originResponse.ok) {
         res.status(originResponse.status).json({
@@ -137,7 +223,7 @@ export function createProxyRouter(cache: CacheStrategy, maxBytes: number, timeou
       });
 
       res.setHeader("X-Cache", "MISS");
-      res.setHeader("Content-Type", contentType);
+      setProxySecurityHeaders(res, contentType);
       res.send(value);
     } catch (err) {
       if (err instanceof ResponseTooLargeError) {

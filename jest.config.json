@@ -1,0 +1,14 @@
+{
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "rootDir": ".",
+  "testMatch": ["**/api-gateway/**/*.test.ts"],
+  "testPathIgnorePatterns": ["/node_modules/"],
+  "tsconfig": {
+    "compilerOptions": {
+      "skipLibCheck": true,
+      "strict": false
+    }
+  },
+  "diagnostics": false
+}

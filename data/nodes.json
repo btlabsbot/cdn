@@ -1,0 +1,13 @@
+[
+  {
+    "id": "ff9faa57-a1d1-4eb1-8611-41d4ef1e2ef0",
+    "hostname": "find-me",
+    "region": "ap-south",
+    "status": "online",
+    "cacheHitRate": 0,
+    "diskUsagePct": 0,
+    "latencyMs": 0,
+    "lastSeen": "2026-09-09T19:52:58.569Z",
+    "createdAt": "2026-09-09T19:52:58.569Z"
+  }
+]

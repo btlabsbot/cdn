@@ -16,6 +16,7 @@
     "dev:gateway": "cross-env PORT=3000 npm run dev -w @lynxnodes/api-gateway",
     "dev:cdn-engine": "cross-env PORT=8080 GATEWAY_URL=http://localhost:3000 npm run dev -w @lynxnodes/cdn-engine",
     "dev:hub": "npm run dev -w @lynxnodes/lynx-hub",
+    "test": "jest --runInBand",
     "lynxcdn": "node scripts/lynxcdn.js"
   },
   "devDependencies": {

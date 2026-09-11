@@ -54,5 +54,6 @@ export function saveUsers(users: StoredUser[]): void {
     atomicWriteJsonSync(DATA_FILE, { users }, 0o600);
   } catch (err) {
     console.error(`[api-gateway] failed to persist to ${DATA_FILE}:`, (err as Error).message);
+    throw err;
   }
 }

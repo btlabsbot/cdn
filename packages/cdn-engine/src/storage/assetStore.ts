@@ -65,6 +65,7 @@ export class AssetStore {
       atomicWriteJsonSync(this.metaPath, Array.from(this.index.values()), 0o600);
     } catch (err) {
       console.error(`[cdn-engine] failed to persist asset index: ${(err as Error).message}`);
+      throw err;
     }
   }
 

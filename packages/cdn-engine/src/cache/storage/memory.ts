@@ -39,6 +39,8 @@ export class MemoryStorage implements CacheStrategy {
     const existing = this.entries.get(copy.key);
     if (existing) {
       this.sizeBytes -= existing.size;
+      this.entries.delete(copy.key);
+      this.eviction.remove(copy.key);
     }
 
     while (this.sizeBytes + copy.size > this.maxSizeBytes && this.entries.size > 0) {

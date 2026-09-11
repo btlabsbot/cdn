@@ -30,17 +30,21 @@ export function getNode(req: Request, res: Response): void {
   res.json(node);
 }
 
-export function heartbeatNode(req: Request, res: Response): void {
+export function heartbeatNode(req: Request, res: Response, next: NextFunction): void {
   const parsed = heartbeatSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
     return;
   }
 
-  const node = nodeService.heartbeat(req.params.id, parsed.data);
-  if (!node) {
-    res.status(404).json({ error: "Node not found" });
-    return;
+  try {
+    const node = nodeService.heartbeat(req.params.id, parsed.data);
+    if (!node) {
+      res.status(404).json({ error: "Node not found" });
+      return;
+    }
+    res.json(node);
+  } catch (err) {
+    next(err);
   }
-  res.json(node);
 }

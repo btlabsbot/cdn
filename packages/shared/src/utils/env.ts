@@ -23,8 +23,8 @@ export function parseIntEnv(name: string, raw: string | undefined, fallback: num
 export function requireStrongSecret(name: string, value: string | undefined, fallback: string): string {
   const secret = value ?? fallback;
   const isProd = process.env.NODE_ENV === "production";
-  if (isProd && (!value || value.length < 32)) {
-    throw new Error(`${name} must be set to a random string (>=32 chars) in production`);
+  if (isProd && (!value || value === fallback || value.length < 32)) {
+    throw new Error(`${name} must be explicitly set to a random string (>=32 chars) in production`);
   }
   return secret;
 }

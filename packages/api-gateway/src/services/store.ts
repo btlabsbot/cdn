@@ -28,6 +28,7 @@ export function saveNodes(nodes: Map<string, Node>): void {
     atomicWriteJsonSync(DATA_FILE, Array.from(nodes.values()), 0o600);
   } catch (err) {
     console.error(`[api-gateway] failed to persist to ${DATA_FILE}:`, (err as Error).message);
+    throw err;
   }
 }
 

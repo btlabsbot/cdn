@@ -24,6 +24,12 @@ const STATUS_LABEL: Record<string, string> = {
   offline: "fuera de línea",
 };
 
+const STATUS_COLOR: Record<string, string> = {
+  online: "var(--signal-online)",
+  degraded: "var(--signal-degraded)",
+  offline: "var(--signal-offline)",
+};
+
 function StatusDot({ status }: { status: string }) {
   const color = STATUS_COLOR[status] ?? "var(--text-muted)";
   return (
